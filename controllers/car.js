@@ -11,6 +11,7 @@ exports.createCar = async (req, res) => {
       const {
         title,
         description,
+        category,
         carType,
         capacity,
         steering,
@@ -30,6 +31,7 @@ exports.createCar = async (req, res) => {
         images,
         title,
         description,
+        category,
         carType,
         capacity,
         steering,
@@ -49,6 +51,19 @@ exports.createCar = async (req, res) => {
       res.status(500).json({ message: "Error creating car", error });
     }
   });
+};
+
+exports.getCarsByCategory = async (req, res) => {
+  const { category } = req.params;
+  try {
+    const cars = await Car.find({ category });
+    if (!cars) {
+      return res.status(404).json({ message: "No cars not found" });
+    }
+    res.status(200).json(cars);
+  } catch (error) {
+    res.status(500).json({ message: "Error retrieving car", error });
+  }
 };
 
 exports.getCars = async (req, res) => {
@@ -108,5 +123,20 @@ exports.deleteCar = async (req, res) => {
     res.status(200).json({ message: "Car deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: "Error deleting car", error });
+  }
+};
+
+exports.updateCarStatus = async (req, res) => {
+  try {
+    const car = await Car.findById(req.params.id);
+    if (!car) {
+      return res.status(404).json({ message: "Car not found" });
+    }
+
+    car.available = !car.available;
+    await car.save();
+    res.status(200).json(car);
+  } catch (error) {
+    res.status(500).json({ message: "Error updating car status", error });
   }
 };

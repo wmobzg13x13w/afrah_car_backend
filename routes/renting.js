@@ -4,16 +4,19 @@ const {
   createRenting,
   getAllRentings,
   getAvailableCars,
+  getUnavailableDates,
 } = require("../controllers/renting");
 const authenticateToken = require("../middleware/authenticateToken");
 
 // Create a new renting
-router.post("/create", authenticateToken, createRenting);
+router.post("/create", createRenting);
 
 // Get all rentings
-router.get("/", authenticateToken, getAllRentings);
+router.get("/getall/:category", authenticateToken, getAllRentings);
 
 // Get available cars by date
-router.get("/availablecars", getAvailableCars);
+router.get("/availablecars/:category", getAvailableCars);
+
+router.get("/getunavailabedates/:carid", getUnavailableDates);
 
 module.exports = router;

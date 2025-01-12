@@ -28,6 +28,11 @@ const carSchema = new mongoose.Schema(
       ],
     },
     gear: { type: String, required: true },
+    category: {
+      type: String,
+      required: true,
+      enum: ["longueduree", "courteduree"],
+    },
     fuel: { type: String, required: true },
     doors: { type: Number, required: true, default: 2 },
     seats: { type: Number, required: true, default: 2 },
@@ -40,6 +45,7 @@ const carSchema = new mongoose.Schema(
       },
     ],
     averageRating: { type: Number, default: 0 },
+    available: { type: Boolean, required: true, default: true },
   },
   { timestamps: true }
 );

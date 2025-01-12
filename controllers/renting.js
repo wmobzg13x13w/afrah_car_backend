@@ -11,10 +11,14 @@ exports.createRenting = async (req, res) => {
       address,
       phone,
       age,
+      city,
       car,
+      category,
       startDate,
       endDate,
       totalPrice,
+      pickupLocation,
+      dropoffLocation,
     } = req.body;
 
     const newRenting = new Renting({
@@ -24,10 +28,14 @@ exports.createRenting = async (req, res) => {
       address,
       phone,
       age,
+      city,
       car,
+      category,
       startDate,
       endDate,
       totalPrice,
+      pickupLocation,
+      dropoffLocation,
     });
 
     await newRenting.save();
@@ -39,8 +47,9 @@ exports.createRenting = async (req, res) => {
 
 // Get all rentings
 exports.getAllRentings = async (req, res) => {
+  const { category } = req.params;
   try {
-    const rentings = await Renting.find().populate("car");
+    const rentings = await Renting.find({ category }).populate("car");
     res.status(200).json(rentings);
   } catch (error) {
     res.status(500).json({ message: "Error retrieving rentings", error });
@@ -60,10 +69,36 @@ exports.getAvailableCars = async (req, res) => {
 
     const availableCars = await Car.find({
       _id: { $nin: rentedCarIds },
+      available: true,
+      category: req.params.category,
     });
 
     res.status(200).json(availableCars);
   } catch (error) {
     res.status(500).json({ message: "Error retrieving available cars", error });
+  }
+};
+
+exports.getUnavailableDates = async (req, res) => {
+  try {
+    const { carid } = req.params;
+
+    const rentings = await Renting.find({ car: carid });
+
+    const unavailableDates = rentings.flatMap((renting) => {
+      const dates = [];
+      let currentDate = new Date(renting.startDate);
+      while (currentDate <= renting.endDate) {
+        dates.push(new Date(currentDate));
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+      return dates;
+    });
+
+    res.status(200).json(unavailableDates);
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Error retrieving unavailable dates", error });
   }
 };
