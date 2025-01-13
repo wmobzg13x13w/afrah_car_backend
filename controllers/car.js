@@ -1,4 +1,5 @@
 const Car = require("../models/car");
+const Renting = require("../models/renting");
 
 const upload = require("../middleware/fileUpload");
 
@@ -120,12 +121,15 @@ exports.deleteCar = async (req, res) => {
       return res.status(404).json({ message: "Car not found" });
     }
 
-    res.status(200).json({ message: "Car deleted successfully" });
+    await Renting.deleteMany({ car: req.params.id });
+
+    res
+      .status(200)
+      .json({ message: "Car and related rentings deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: "Error deleting car", error });
   }
 };
-
 exports.updateCarStatus = async (req, res) => {
   try {
     const car = await Car.findById(req.params.id);
@@ -138,5 +142,37 @@ exports.updateCarStatus = async (req, res) => {
     res.status(200).json(car);
   } catch (error) {
     res.status(500).json({ message: "Error updating car status", error });
+  }
+};
+
+exports.getCarsCollection = async (req, res) => {
+  try {
+    const suvCars = await Car.find({ carType: "SUV" }).limit(2);
+    const sedanCars = await Car.find({ carType: "Sedan" }).limit(2);
+    const pickupCars = await Car.find({ carType: "Pickup" }).limit(2);
+
+    const cars = [...suvCars, ...sedanCars, ...pickupCars];
+
+    res.status(200).json(cars);
+  } catch (error) {
+    res.status(500).json({ message: "Error retrieving cars by type", error });
+  }
+};
+
+exports.addRating = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { fullName, rating, comment } = req.body;
+
+    const car = await Car.findById(id);
+    if (!car) {
+      return res.status(404).json({ message: "Car not found" });
+    }
+
+    await car.addRating(fullName, rating, comment);
+
+    res.status(200).json(car);
+  } catch (error) {
+    res.status(500).json({ message: "Error adding rating", error });
   }
 };

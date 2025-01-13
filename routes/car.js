@@ -8,6 +8,8 @@ const {
   deleteCar,
   getCarsByCategory,
   updateCarStatus,
+  getCarsCollection,
+  addRating,
 } = require("../controllers/car");
 const authenticateToken = require("../middleware/authenticateToken");
 
@@ -16,6 +18,8 @@ router.post("/add", authenticateToken, createCar);
 
 router.get("/getcarsbycategory/:category", getCarsByCategory);
 
+// Get all cars
+router.get("/getcollectioncars", getCarsCollection);
 // Get all cars
 router.get("/getcars", getCars);
 
@@ -29,5 +33,7 @@ router.patch("/edit/:id", authenticateToken, update);
 
 // Delete a car by ID
 router.delete("/delete/:id", authenticateToken, deleteCar);
+
+router.post("/:id/rating", addRating);
 
 module.exports = router;
