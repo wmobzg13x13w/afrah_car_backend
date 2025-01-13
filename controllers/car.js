@@ -148,10 +148,10 @@ exports.updateCarStatus = async (req, res) => {
 exports.getCarsCollection = async (req, res) => {
   try {
     const suvCars = await Car.find({ carType: "SUV" }).limit(2);
-    const sedanCars = await Car.find({ carType: "Sedan" }).limit(2);
+    const berlineCars = await Car.find({ carType: "Berline" }).limit(2);
     const pickupCars = await Car.find({ carType: "Pickup" }).limit(2);
 
-    const cars = [...suvCars, ...sedanCars, ...pickupCars];
+    const cars = [...suvCars, ...berlineCars, ...pickupCars];
 
     res.status(200).json(cars);
   } catch (error) {
