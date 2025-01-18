@@ -12,6 +12,8 @@ const transfertSchema = new mongoose.Schema(
     endDate: { type: Date, required: true },
     pickupLocation: { type: String, required: true },
     dropoffLocation: { type: String, required: true },
+    carburant: { type: String, required: true },
+    carType: { type: String, required: true },
   },
   { timestamps: true }
 );

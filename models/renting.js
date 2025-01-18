@@ -20,6 +20,9 @@ const rentingSchema = new mongoose.Schema(
     totalPrice: { type: Number, required: true },
     pickupLocation: { type: String, required: true },
     dropoffLocation: { type: String, required: true },
+    whatsapp: { type: String, required: true },
+    siegeAuto: { type: Boolean, required: true },
+    numVol: { type: String, required: false },
   },
   { timestamps: true }
 );

@@ -1,5 +1,7 @@
 const Renting = require("../models/renting");
 const Car = require("../models/car");
+const nodemailer = require("nodemailer");
+const pdf = require("html-pdf");
 
 // Create a new renting
 exports.createRenting = async (req, res) => {
@@ -19,6 +21,9 @@ exports.createRenting = async (req, res) => {
       totalPrice,
       pickupLocation,
       dropoffLocation,
+      whatsapp,
+      siegeAuto,
+      numVol,
     } = req.body;
 
     const newRenting = new Renting({
@@ -36,9 +41,145 @@ exports.createRenting = async (req, res) => {
       totalPrice,
       pickupLocation,
       dropoffLocation,
+      whatsapp,
+      siegeAuto,
+      numVol,
     });
 
     await newRenting.save();
+    const chosenCar = await Car.findById(car);
+
+    // Create a Nodemailer transporter
+    const transporter = nodemailer.createTransport({
+      // Configure your email server details here
+      service: "gmail",
+      auth: {
+        user: process.env.email,
+        pass: process.env.pass,
+      },
+    });
+
+    // Generate the PDF content
+    const pdfContent = `
+      <html>
+        <head>
+          <style>
+            /* Add your PDF styling here */
+            body {
+              font-family: Arial, sans-serif;
+              padding: 20px;
+            }
+            h1 {
+              text-align: center;
+              margin-bottom: 30px;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 20px;
+            }
+            th, td {
+              padding: 10px;
+              text-align: left;
+              border-bottom: 1px solid #ddd;
+            }
+            th {
+              background-color: #f2f2f2;
+            }
+          </style>
+        </head>
+        <body>
+          <h1>Rental Details</h1>
+          <table>
+            <tr>
+              <th>Name</th>
+              <td>${firstName} ${lastName}</td>
+            </tr>
+            <tr>
+              <th>Email</th>
+              <td>${email}</td>
+            </tr>
+            <tr>
+              <th>Address</th>
+              <td>${address}</td>
+            </tr>
+            <tr>
+              <th>Phone</th>
+              <td>${phone}</td>
+            </tr>
+            <tr>
+              <th>Numéro WhatsApp</th>
+              <td>${whatsapp}</td>
+            </tr>
+            <tr>
+              <th>Age</th>
+              <td>${age}</td>
+            </tr>
+            <tr>
+              <th>City</th>
+              <td>${city}</td>
+            </tr>
+            <tr>
+              <th>Car</th>
+              <td>${chosenCar.title}</td>
+            </tr>
+            <tr>
+              <th>Category</th>
+              <td>${
+                category == "longueduree" ? "Longue durée" : "Courte durée"
+              }</td>
+            </tr>
+            <tr>
+              <th>Pickup Date</th>
+              <td>${startDate.toLocaleString("fr-FR")}</td>
+            </tr>
+            <tr>
+              <th>Dropoff Date</th>
+              <td>${endDate.toLocaleString("fr-FR")}</td>
+            </tr>
+            <tr>
+              <th>Pickup Location</th>
+              <td>${pickupLocation}</td>
+            </tr>
+            <tr>
+              <th>Dropoff Location</th>
+              <td>${dropoffLocation}</td>
+            </tr>
+            <tr>
+              <th>Total Price</th>
+              <td>${totalPrice} €</td>
+            </tr>
+          </table>
+        </body>
+      </html>
+    `;
+
+    // Create the PDF file
+    const pdfBuffer = await new Promise((resolve, reject) => {
+      pdf.create(pdfContent).toBuffer((err, buffer) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(buffer);
+        }
+      });
+    });
+
+    const mailOptions = {
+      from: process.env.email,
+      to: email,
+      subject: "Détails de location",
+      text: "Veuillez trouver ci-joint les détails de la location.",
+      attachments: [
+        {
+          filename: "rental-details.pdf",
+          content: pdfBuffer,
+          encoding: "binary",
+        },
+      ],
+    };
+
+    await transporter.sendMail(mailOptions);
     res.status(201).json(newRenting);
   } catch (error) {
     res.status(500).json({ message: "Error creating renting", error });

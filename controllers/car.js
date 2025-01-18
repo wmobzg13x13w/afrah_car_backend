@@ -24,6 +24,8 @@ exports.createCar = async (req, res) => {
         doors,
         seats,
         mileage,
+        garantie,
+        isNewCar,
       } = req.body;
 
       const images = req.files.map((file) => file.originalname);
@@ -44,6 +46,8 @@ exports.createCar = async (req, res) => {
         doors,
         seats,
         mileage,
+        garantie,
+        isNewCar,
       });
 
       await newCar.save();

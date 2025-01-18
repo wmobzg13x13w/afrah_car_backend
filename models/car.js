@@ -46,6 +46,8 @@ const carSchema = new mongoose.Schema(
     ],
     averageRating: { type: Number, default: 0 },
     available: { type: Boolean, required: true, default: true },
+    garantie: { type: Number, default: 0 },
+    isNewCar: { type: Boolean, required: true, default: true },
   },
   { timestamps: true }
 );
