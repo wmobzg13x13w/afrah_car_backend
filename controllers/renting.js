@@ -45,6 +45,7 @@ exports.createRenting = async (req, res) => {
       siegeAuto,
       numVol,
     });
+    console.log(siegeAuto);
 
     await newRenting.save();
     const chosenCar = await Car.findById(car);
@@ -131,11 +132,21 @@ exports.createRenting = async (req, res) => {
             </tr>
             <tr>
               <th>Pickup Date</th>
-              <td>${startDate.toLocaleString("fr-FR")}</td>
+              <td>
+              ${new Date(startDate).toLocaleDateString("fr-FR")} 
+              ${new Date(startDate).toLocaleTimeString("fr-FR", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}</td>
             </tr>
             <tr>
               <th>Dropoff Date</th>
-              <td>${endDate.toLocaleString("fr-FR")}</td>
+              <td>
+              ${new Date(endDate).toLocaleDateString("fr-FR")} 
+              ${new Date(endDate).toLocaleTimeString("fr-FR", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}</td>
             </tr>
             <tr>
               <th>Pickup Location</th>
@@ -147,7 +158,7 @@ exports.createRenting = async (req, res) => {
             </tr>
             <tr>
               <th>Total Price</th>
-              <td>${totalPrice} €</td>
+              <td>${totalPrice} dt</td>
             </tr>
           </table>
         </body>
