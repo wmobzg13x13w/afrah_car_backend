@@ -11,43 +11,37 @@ exports.createCar = async (req, res) => {
     try {
       const {
         title,
+        matricule,
         description,
         category,
         carType,
-        capacity,
-        steering,
-        engineType,
         price,
-        equipments,
         gear,
         fuel,
         doors,
         seats,
-        mileage,
         garantie,
         isNewCar,
+        airConditionner,
       } = req.body;
 
       const images = req.files.map((file) => file.originalname);
 
       const newCar = new Car({
-        images,
         title,
+        matricule,
         description,
         category,
         carType,
-        capacity,
-        steering,
-        engineType,
         price,
-        equipments: equipments ? equipments.split(",") : [],
         gear,
         fuel,
         doors,
         seats,
-        mileage,
         garantie,
         isNewCar,
+        airConditionner,
+        images,
       });
 
       await newCar.save();
@@ -100,21 +94,66 @@ exports.getCar = async (req, res) => {
 };
 
 exports.update = async (req, res) => {
-  try {
-    const updatedCar = await Car.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    });
-
-    if (!updatedCar) {
-      return res.status(404).json({ message: "Car not found" });
+  upload(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ message: err });
     }
+    try {
+      const {
+        title,
+        matricule,
+        description,
+        category,
+        carType,
+        price,
+        gear,
+        fuel,
+        doors,
+        seats,
+        garantie,
+        isNewCar,
+        airConditionner,
+      } = req.body;
 
-    res.status(200).json(updatedCar);
-  } catch (error) {
-    console.error("Error updating car:", error);
-    res.status(500).json({ message: "Error updating car", error });
-  }
+      const updatedFields = {
+        title,
+        matricule,
+        description,
+        category,
+        carType,
+        price,
+        gear,
+        fuel,
+        doors,
+        seats,
+        garantie,
+        isNewCar,
+        airConditionner,
+      };
+
+      if (req.files && req.files.length > 0) {
+        updatedFields.images = req.files.map((file) => file.originalname);
+      }
+
+      const updatedCar = await Car.findByIdAndUpdate(
+        req.params.id,
+        updatedFields,
+        {
+          new: true,
+          runValidators: true,
+        }
+      );
+
+      if (!updatedCar) {
+        return res.status(404).json({ message: "Car not found" });
+      }
+
+      res.status(200).json(updatedCar);
+    } catch (error) {
+      console.error("Error updating car:", error);
+      res.status(500).json({ message: "Error updating car", error });
+    }
+  });
 };
 
 exports.deleteCar = async (req, res) => {

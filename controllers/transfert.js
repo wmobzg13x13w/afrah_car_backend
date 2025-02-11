@@ -1,7 +1,6 @@
 const Transfert = require("../models/transfert");
 const nodemailer = require("nodemailer");
 const pdf = require("html-pdf");
-// Create a new transfert
 exports.createTransfert = async (req, res) => {
   try {
     const {
@@ -17,6 +16,7 @@ exports.createTransfert = async (req, res) => {
       dropoffLocation,
       carburant,
       carType,
+      fuelFeesOn,
     } = req.body;
 
     const newTransfert = new Transfert({
@@ -32,6 +32,7 @@ exports.createTransfert = async (req, res) => {
       dropoffLocation,
       carburant,
       carType,
+      fuelFeesOn,
     });
 
     const pdfContent = `
@@ -63,10 +64,10 @@ exports.createTransfert = async (req, res) => {
         </style>
       </head>
       <body>
-        <h1>Rental Details</h1>
+        <h1>Détails du Transfert</h1>
         <table>
           <tr>
-            <th>Name</th>
+            <th>Nom</th>
             <td>${firstName} ${lastName}</td>
           </tr>
           <tr>
@@ -74,49 +75,66 @@ exports.createTransfert = async (req, res) => {
             <td>${email}</td>
           </tr>
           <tr>
-            <th>Address</th>
+            <th>Adresse</th>
             <td>${address}</td>
           </tr>
           <tr>
-            <th>Phone</th>
+            <th>Téléphone</th>
             <td>${phone}</td>
           </tr>
           <tr>
             <th>Numéro WhatsApp</th>
             <td>${whatsAppNum}</td>
           </tr>
-          
-          
-          
-          
           <tr>
-            <th>Pickup Date</th>
-            <td>${startDate.toLocaleString("fr-FR")}</td>
+            <th>Date de prise en charge</th>
+            <td>${new Date(startDate).toLocaleString("fr-FR", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}</td>
           </tr>
           <tr>
-            <th>Dropoff Date</th>
-            <td>${endDate.toLocaleString("fr-FR")}</td>
+            <th>Date de restitution</th>
+            <td>${new Date(endDate).toLocaleString("fr-FR", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}</td>
           </tr>
           <tr>
-            <th>Pickup Location</th>
+            <th>Lieu de prise en charge</th>
             <td>${pickupLocation}</td>
           </tr>
           <tr>
-            <th>Dropoff Location</th>
+            <th>Lieu de restitution</th>
             <td>${dropoffLocation}</td>
           </tr>
           <tr>
             <th>Type de voiture</th>
-            <td>${carType} €</td>
+            <td>${carType}</td>
           </tr>
           <tr>
-            <th>Carburant</th>
-            <td>${carburant} €</td>
+            <th>Type de carburant</th>
+            <td>${carburant}</td>
+          </tr>
+          <tr>
+            <th>Frais de carburant</th>
+            <td>${
+              fuelFeesOn === "client"
+                ? "À la charge du client"
+                : "À la charge de l'entreprise"
+            }</td>
           </tr>
         </table>
       </body>
     </html>
   `;
+
     const transporter = nodemailer.createTransport({
       // Configure your email server details here
       service: "gmail",
@@ -154,7 +172,9 @@ exports.createTransfert = async (req, res) => {
     await newTransfert.save();
     res.status(201).json(newTransfert);
   } catch (error) {
-    res.status(500).json({ message: "Error creating transfert", error });
+    res
+      .status(500)
+      .json({ message: "Erreur lors de la création du transfert", error });
   }
 };
 

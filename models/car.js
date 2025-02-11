@@ -7,26 +7,8 @@ const carSchema = new mongoose.Schema(
     reviews: { type: [String], required: true },
     description: { type: String, required: true },
     carType: { type: String, required: true },
-    capacity: { type: Number, required: true, default: 2 },
-    steering: { type: String, required: true },
-    engineType: { type: String, required: true },
     price: { type: Number, required: true },
-    equipments: {
-      type: [String],
-      enum: [
-        "Climatisation",
-        "Direction Assistée",
-        "ABS",
-        "Airbags",
-        "Toit Ouvrant",
-        "Navigation",
-        "Bluetooth",
-        "Capteurs de Stationnement",
-        "Sièges en Cuir",
-        "Sièges Chauffants",
-        "Régulateur de Vitesse",
-      ],
-    },
+
     gear: { type: String, required: true },
     category: {
       type: String,
@@ -36,7 +18,6 @@ const carSchema = new mongoose.Schema(
     fuel: { type: String, required: true },
     doors: { type: Number, required: true, default: 2 },
     seats: { type: Number, required: true, default: 2 },
-    mileage: { type: Number, required: true },
     ratings: [
       {
         fullName: { type: String, required: true },
@@ -48,6 +29,8 @@ const carSchema = new mongoose.Schema(
     available: { type: Boolean, required: true, default: true },
     garantie: { type: Number, default: 0 },
     isNewCar: { type: Boolean, required: true, default: true },
+    matricule: { type: String, required: true },
+    airConditionner: { type: Boolean, required: true, default: true },
   },
   { timestamps: true }
 );

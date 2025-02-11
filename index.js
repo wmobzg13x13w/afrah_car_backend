@@ -11,6 +11,7 @@ const adminRouter = require("./routes/admin");
 const carRouter = require("./routes/car");
 const rentingRouter = require("./routes/renting");
 const transfertRouter = require("./routes/transfert");
+const carTypesRouter = require("./routes/carTypes");
 
 app.use(express.json());
 app.use(cors());
@@ -20,6 +21,7 @@ app.use("/cars", carRouter);
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/rentings", rentingRouter);
 app.use("/transfert", transfertRouter);
+app.use("/cartypes", carTypesRouter);
 
 mongoose
   .connect(process.env.DB_CONNECTION)

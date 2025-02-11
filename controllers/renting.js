@@ -25,6 +25,7 @@ exports.createRenting = async (req, res) => {
       siegeAuto,
       numVol,
     } = req.body;
+    console.log(req.body);
 
     const newRenting = new Renting({
       firstName,
@@ -252,5 +253,49 @@ exports.getUnavailableDates = async (req, res) => {
     res
       .status(500)
       .json({ message: "Error retrieving unavailable dates", error });
+  }
+};
+
+exports.getCarsByMonth = async (req, res) => {
+  const { month, year } = req.query;
+
+  try {
+    // Create start and end dates for the given month
+    const startOfMonth = new Date(year, month - 1, 1); // month is 0-indexed in JS
+    const endOfMonth = new Date(year, month, 0); // Last day of the month
+
+    // Get all cars
+    const cars = await Car.find();
+
+    // Get all rentals for the specified month
+    const rentals = await Renting.find({
+      startDate: { $lte: endOfMonth },
+      endDate: { $gte: startOfMonth },
+    }).populate("car"); // Populate car details
+
+    // Group rentals by car
+    const groupedRentals = rentals.reduce((acc, rental) => {
+      const carId = rental.car._id.toString();
+      if (!acc[carId]) {
+        acc[carId] = {
+          car: rental.car,
+          reservations: [],
+        };
+      }
+      acc[carId].reservations.push(rental);
+      return acc;
+    }, {});
+
+    // Create a response array that will include all cars and their reservations
+    const response = cars.map((car) => ({
+      car,
+      reservations: groupedRentals[car._id.toString()]
+        ? groupedRentals[car._id.toString()].reservations
+        : [],
+    }));
+
+    res.status(200).json(response);
+  } catch (error) {
+    res.status(500).json({ message: "Error retrieving cars by month", error });
   }
 };
