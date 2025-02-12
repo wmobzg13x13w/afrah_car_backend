@@ -2,6 +2,7 @@ const Renting = require("../models/renting");
 const Car = require("../models/car");
 const nodemailer = require("nodemailer");
 const pdf = require("html-pdf");
+const unavailability = require("../models/unavailability");
 
 // Create a new renting
 exports.createRenting = async (req, res) => {
@@ -213,22 +214,53 @@ exports.getAllRentings = async (req, res) => {
 exports.getAvailableCars = async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
+    const category = req.params.category;
 
-    const rentings = await Renting.find({
-      $or: [{ startDate: { $lte: endDate }, endDate: { $gte: startDate } }],
-    }).populate("car");
+    // Convert query parameters to Date objects
+    const start = new Date(startDate);
+    const end = new Date(endDate);
 
-    const rentedCarIds = rentings.map((renting) => renting.car._id);
+    // Validate dates
+    if (isNaN(start) || isNaN(end)) {
+      return res.status(400).json({ message: "Invalid date format" });
+    }
 
+    // Find all cars that have overlapping reservations
+    const rentedCars = await Renting.find({
+      $or: [
+        { startDate: { $lte: end }, endDate: { $gte: start } },
+        { startDate: { $gte: start, $lte: end } },
+        { endDate: { $gte: start, $lte: end } },
+      ],
+    }).distinct("car");
+
+    // Find all cars with overlapping unavailability
+    const unavailableCars = await unavailability
+      .find({
+        $or: [
+          { startDate: { $lte: end }, endDate: { $gte: start } },
+          { startDate: { $gte: start, $lte: end } },
+          { endDate: { $gte: start, $lte: end } },
+        ],
+      })
+      .distinct("car");
+
+    // Combine and deduplicate excluded cars
+    const excludedCars = [...new Set([...rentedCars, ...unavailableCars])];
+
+    // Find available cars not in excluded list
     const availableCars = await Car.find({
-      _id: { $nin: rentedCarIds },
+      _id: { $nin: excludedCars },
+      category: category,
       available: true,
-      category: req.params.category,
     });
 
     res.status(200).json(availableCars);
   } catch (error) {
-    res.status(500).json({ message: "Error retrieving available cars", error });
+    res.status(500).json({
+      message: "Error retrieving available cars",
+      error: error.message,
+    });
   }
 };
 
