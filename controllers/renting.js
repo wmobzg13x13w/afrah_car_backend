@@ -26,7 +26,6 @@ exports.createRenting = async (req, res) => {
       siegeAuto,
       numVol,
     } = req.body;
-    console.log(req.body);
 
     const newRenting = new Renting({
       firstName,
