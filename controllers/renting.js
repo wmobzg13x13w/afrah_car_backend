@@ -1,10 +1,115 @@
 const Renting = require("../models/renting");
 const Car = require("../models/car");
 const nodemailer = require("nodemailer");
-const pdf = require("html-pdf");
 const unavailability = require("../models/unavailability");
 
 // Create a new renting
+const PDFDocument = require("pdfkit");
+
+async function createRentalPDF(rentalData) {
+  return new Promise((resolve) => {
+    const doc = new PDFDocument({ margin: 30, size: "A4", bufferPages: true });
+    const buffers = [];
+
+    doc.on("data", buffers.push.bind(buffers));
+    doc.on("end", () => resolve(Buffer.concat(buffers)));
+
+    // Header
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(18)
+      .text("CONTRAT DE LOCATION", { align: "center" })
+      .moveDown(0.3);
+
+    // Horizontal line
+    doc.moveTo(30, 90).lineTo(570, 90).strokeColor("#cccccc").stroke();
+
+    let yPosition = 110;
+
+    // Client Information Section
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(11)
+      .text("INFORMATIONS CLIENT:", 30, yPosition);
+    yPosition += 20;
+
+    const clientInfo = [
+      `Nom Complet: ${rentalData.firstName} ${rentalData.lastName}`,
+      `Email: ${rentalData.email}`,
+      `Téléphone: ${rentalData.phone}`,
+      `WhatsApp: ${rentalData.whatsapp}`,
+      `Adresse: ${rentalData.address}`,
+      `Ville: ${rentalData.city}`,
+      `Âge: ${rentalData.age}`,
+    ];
+
+    clientInfo.forEach((info) => {
+      doc.font("Helvetica").fontSize(10).text(`• ${info}`, 40, yPosition);
+      yPosition += 15;
+    });
+
+    // Vehicle Information Section
+    yPosition += 10; // Add spacing between sections
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(11)
+      .text("DÉTAILS DU VÉHICULE:", 30, yPosition);
+    yPosition += 20;
+    const vehicleInfo = [
+      ["Véhicule:", rentalData.title],
+      [
+        "Catégorie:",
+        rentalData.category === "longueduree" ? "Longue Durée" : "Courte Durée",
+      ],
+      ["Lieu de Départ:", rentalData.pickupLocation],
+      ["Lieu de Retour:", rentalData.dropoffLocation],
+      ["Date de Départ:", formatFrenchDate(rentalData.startDate)],
+      ["Date de Retour:", formatFrenchDate(rentalData.endDate)],
+      ["Siège Auto:", rentalData.siegeAuto ? "Oui" : "Non"],
+      ["Nombre Vol:", rentalData.numVol],
+    ];
+
+    vehicleInfo.forEach(([label, value]) => {
+      doc.font("Helvetica-Bold").text(label, 50, yPosition);
+      doc.font("Helvetica").text(value, 150, yPosition);
+      yPosition += 20;
+    });
+
+    // Pricing Section
+    yPosition += 10;
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(12)
+      .text("DÉTAILS FINANCIERS:", 30, yPosition)
+      .moveDown(0.5);
+
+    doc
+      .font("Helvetica")
+      .fontSize(12)
+      .text(`Prix Total: ${rentalData.totalPrice} DT`, 30, yPosition + 20);
+    doc
+      .font("Helvetica")
+      .fontSize(12)
+      .text(`Dépôt de garantie: ${rentalData.garantie} DT`, 30, yPosition + 40);
+
+    // Footer
+    doc.fontSize(9).text("Merci pour votre confiance!", 30, 750);
+
+    doc.end();
+  });
+}
+
+function formatFrenchDate(dateString) {
+  const date = new Date(dateString);
+  return date.toLocaleDateString("fr-FR", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 exports.createRenting = async (req, res) => {
   try {
     const {
@@ -15,7 +120,7 @@ exports.createRenting = async (req, res) => {
       phone,
       age,
       city,
-      car,
+      carModel,
       category,
       startDate,
       endDate,
@@ -27,7 +132,15 @@ exports.createRenting = async (req, res) => {
       numVol,
     } = req.body;
 
-    const newRenting = new Renting({
+    const vehicleType = await Car.findById(carModel);
+    if (!vehicleType) {
+      return res.status(404).json({ message: "Car model not found" });
+    }
+    const newRenting = new Renting({ ...req.body, carModel: vehicleType._id });
+    await newRenting.save();
+    const title = carModel.title;
+    // Generate PDF
+    const pdfBuffer = await createRentalPDF({
       firstName,
       lastName,
       email,
@@ -35,7 +148,7 @@ exports.createRenting = async (req, res) => {
       phone,
       age,
       city,
-      car,
+      title,
       category,
       startDate,
       endDate,
@@ -45,15 +158,11 @@ exports.createRenting = async (req, res) => {
       whatsapp,
       siegeAuto,
       numVol,
+      garantie: vehicleType.garantie,
     });
-    console.log(siegeAuto);
 
-    await newRenting.save();
-    const chosenCar = await Car.findById(car);
-
-    // Create a Nodemailer transporter
+    // Send Email
     const transporter = nodemailer.createTransport({
-      // Configure your email server details here
       service: "gmail",
       auth: {
         user: process.env.email,
@@ -61,200 +170,210 @@ exports.createRenting = async (req, res) => {
       },
     });
 
-    // Generate the PDF content
-    const pdfContent = `
-      <html>
-        <head>
-          <style>
-            /* Add your PDF styling here */
-            body {
-              font-family: Arial, sans-serif;
-              padding: 20px;
-            }
-            h1 {
-              text-align: center;
-              margin-bottom: 30px;
-            }
-            table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-bottom: 20px;
-            }
-            th, td {
-              padding: 10px;
-              text-align: left;
-              border-bottom: 1px solid #ddd;
-            }
-            th {
-              background-color: #f2f2f2;
-            }
-          </style>
-        </head>
-        <body>
-          <h1>Rental Details</h1>
-          <table>
-            <tr>
-              <th>Name</th>
-              <td>${firstName} ${lastName}</td>
-            </tr>
-            <tr>
-              <th>Email</th>
-              <td>${email}</td>
-            </tr>
-            <tr>
-              <th>Address</th>
-              <td>${address}</td>
-            </tr>
-            <tr>
-              <th>Phone</th>
-              <td>${phone}</td>
-            </tr>
-            <tr>
-              <th>Numéro WhatsApp</th>
-              <td>${whatsapp}</td>
-            </tr>
-            <tr>
-              <th>Age</th>
-              <td>${age}</td>
-            </tr>
-            <tr>
-              <th>City</th>
-              <td>${city}</td>
-            </tr>
-            <tr>
-              <th>Car</th>
-              <td>${chosenCar.title}</td>
-            </tr>
-            <tr>
-              <th>Category</th>
-              <td>${
-                category == "longueduree" ? "Longue durée" : "Courte durée"
-              }</td>
-            </tr>
-            <tr>
-              <th>Pickup Date</th>
-              <td>
-              ${new Date(startDate).toLocaleDateString("fr-FR")} 
-              ${new Date(startDate).toLocaleTimeString("fr-FR", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}</td>
-            </tr>
-            <tr>
-              <th>Dropoff Date</th>
-              <td>
-              ${new Date(endDate).toLocaleDateString("fr-FR")} 
-              ${new Date(endDate).toLocaleTimeString("fr-FR", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}</td>
-            </tr>
-            <tr>
-              <th>Pickup Location</th>
-              <td>${pickupLocation}</td>
-            </tr>
-            <tr>
-              <th>Dropoff Location</th>
-              <td>${dropoffLocation}</td>
-            </tr>
-            <tr>
-              <th>Total Price</th>
-              <td>${totalPrice} dt</td>
-            </tr>
-          </table>
-        </body>
-      </html>
-    `;
-
-    // Create the PDF file
-    const pdfBuffer = await new Promise((resolve, reject) => {
-      pdf.create(pdfContent).toBuffer((err, buffer) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(buffer);
-        }
-      });
-    });
-
-    const mailOptions = {
+    await transporter.sendMail({
       from: process.env.email,
       to: email,
-      subject: "Détails de location",
-      text: "Veuillez trouver ci-joint les détails de la location.",
+      subject: "Votre Contrat de Location",
+      text: `Bonjour ${firstName},\n\nVeuillez trouver ci-joint votre contrat de location.\n\nCordialement,\nL'équipe de location`,
       attachments: [
         {
-          filename: "rental-details.pdf",
+          filename: `Contrat_Location_${firstName}_${lastName}.pdf`,
           content: pdfBuffer,
-          encoding: "binary",
         },
       ],
-    };
+    });
 
-    await transporter.sendMail(mailOptions);
-    res.status(201).json(newRenting);
+    res.status(201).json({
+      success: true,
+      data: newRenting,
+      message: "Location créée et contrat envoyé avec succès",
+    });
   } catch (error) {
-    res.status(500).json({ message: "Error creating renting", error });
+    console.error("Erreur:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la création de la location",
+    });
+  }
+};
+
+exports.assignMatricule = async (req, res) => {
+  try {
+    const { rentingId } = req.params;
+    const { matricule } = req.body;
+
+    const renting = await Renting.findById(rentingId);
+    const vehicleType = await Car.findById(renting.carModel);
+
+    // Validation checks
+    if (!renting || !vehicleType) {
+      return res
+        .status(404)
+        .json({ message: "Renting or vehicle type not found" });
+    }
+
+    // Check if matricule exists and is available
+    const isAvailable = vehicleType.isMatriculeAvailable(
+      matricule,
+      renting.startDate,
+      renting.endDate
+    );
+
+    if (!isAvailable) {
+      return res.status(404).json({ message: "Matricule not available" });
+    }
+
+    // Update renting and mark matricule as booked
+    renting.assignedMatricule = matricule;
+    renting.assignmentDate = new Date();
+
+    await Promise.all([
+      renting.save(),
+      Car.updateOne(
+        { _id: vehicleType._id, "matricules.value": matricule },
+        {
+          $push: {
+            "matricules.$.unavailablePeriods": {
+              startDate: renting.startDate,
+              endDate: renting.endDate,
+            },
+          },
+        }
+      ),
+    ]);
+
+    // Send updated contract
+
+    res.json({
+      success: true,
+      message: "Vehicle assigned successfully",
+      matricule,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Assignment failed",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+exports.getAvailableMatricules = async (req, res) => {
+  try {
+    const { carModel, startDate, endDate } = req.query;
+
+    const vehicleType = await Car.findById(carModel);
+    if (!vehicleType) {
+      return res.status(404).json({ message: "Car model not found" });
+    }
+
+    const availableMatricules = vehicleType.matricules
+      .filter((m) => m.available)
+      .filter(
+        (m) =>
+          !m.unavailablePeriods?.some(
+            (period) =>
+              period.startDate <= endDate && period.endDate >= startDate
+          )
+      )
+      .map((m) => m.value);
+
+    res.json({ availableMatricules });
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching matricules", error });
   }
 };
 
 // Get all rentings
 exports.getAllRentings = async (req, res) => {
-  const { category } = req.params;
   try {
-    const rentings = await Renting.find({ category }).populate("car");
+    const { category } = req.query;
+
+    // Validate category parameter
+    const validCategories = ["longueduree", "courteduree"];
+    if (!validCategories.includes(category)) {
+      return res.status(400).json({ message: "Catégorie non valide" });
+    }
+
+    const rentings = await Renting.find({ category })
+      .populate("carModel")
+      .sort({ createdAt: -1 });
+
     res.status(200).json(rentings);
   } catch (error) {
-    res.status(500).json({ message: "Error retrieving rentings", error });
+    res.status(500).json({
+      message: "Error retrieving rentings",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
   }
 };
 
 // Get available cars by date
 exports.getAvailableCars = async (req, res) => {
   try {
-    const { startDate, endDate } = req.query;
-    const category = req.params.category;
-
-    // Convert query parameters to Date objects
+    const { startDate, endDate, category } = req.query;
     const start = new Date(startDate);
     const end = new Date(endDate);
 
-    // Validate dates
     if (isNaN(start) || isNaN(end)) {
       return res.status(400).json({ message: "Invalid date format" });
     }
 
-    // Find all cars that have overlapping reservations
-    const rentedCars = await Renting.find({
-      $or: [
-        { startDate: { $lte: end }, endDate: { $gte: start } },
-        { startDate: { $gte: start, $lte: end } },
-        { endDate: { $gte: start, $lte: end } },
-      ],
-    }).distinct("car");
-
-    // Find all cars with overlapping unavailability
-    const unavailableCars = await unavailability
-      .find({
-        $or: [
-          { startDate: { $lte: end }, endDate: { $gte: start } },
-          { startDate: { $gte: start, $lte: end } },
-          { endDate: { $gte: start, $lte: end } },
-        ],
-      })
-      .distinct("car");
-
-    // Combine and deduplicate excluded cars
-    const excludedCars = [...new Set([...rentedCars, ...unavailableCars])];
-
-    // Find available cars not in excluded list
-    const availableCars = await Car.find({
-      _id: { $nin: excludedCars },
+    // Get all cars in the category
+    const allCars = await Car.find({
       category: category,
       available: true,
-    });
+    }).lean();
 
-    res.status(200).json(availableCars);
+    // Find available cars with available matricules
+    const availableCars = await Promise.all(
+      allCars.map(async (car) => {
+        const availableMatricules = await Promise.all(
+          car.matricules.map(async (matricule) => {
+            // Check for overlapping reservations
+            const reservationConflict = await Renting.exists({
+              assignedMatricule: matricule.value,
+              $or: [
+                { startDate: { $lte: end }, endDate: { $gte: start } },
+                { startDate: { $gte: start, $lte: end } },
+                { endDate: { $gte: start, $lte: end } },
+              ],
+            });
+
+            // Check for overlapping unavailabilities
+            const unavailabilityConflict = await unavailability.exists({
+              matricule: matricule.value,
+              $or: [
+                { startDate: { $lte: end }, endDate: { $gte: start } },
+                { startDate: { $gte: start, $lte: end } },
+                { endDate: { $gte: start, $lte: end } },
+              ],
+            });
+
+            // Matricule is available if no conflicts
+            return !reservationConflict && !unavailabilityConflict
+              ? matricule.value
+              : null;
+          })
+        );
+
+        // Filter out null values and get only available matricules
+        const validMatricules = availableMatricules.filter((m) => m !== null);
+
+        return validMatricules.length > 0
+          ? {
+              ...car,
+              matricules: validMatricules,
+              availableMatriculeCount: validMatricules.length,
+            }
+          : null;
+      })
+    );
+
+    // Filter out cars with no available matricules
+    const filteredCars = availableCars.filter((car) => car !== null);
+
+    res.status(200).json(filteredCars);
   } catch (error) {
     res.status(500).json({
       message: "Error retrieving available cars",
@@ -286,47 +405,111 @@ exports.getUnavailableDates = async (req, res) => {
       .json({ message: "Error retrieving unavailable dates", error });
   }
 };
-
 exports.getCarsByMonth = async (req, res) => {
   const { month, year } = req.query;
 
   try {
-    // Create start and end dates for the given month
-    const startOfMonth = new Date(year, month - 1, 1); // month is 0-indexed in JS
-    const endOfMonth = new Date(year, month, 0); // Last day of the month
+    const startOfMonth = new Date(Date.UTC(year, month - 1, 1));
+    const endOfMonth = new Date(Date.UTC(year, month, 0, 23, 59, 59));
 
-    // Get all cars
-    const cars = await Car.find();
+    // Get all cars with matricules
+    const cars = await Car.find().lean();
 
-    // Get all rentals for the specified month
-    const rentals = await Renting.find({
-      startDate: { $lte: endOfMonth },
-      endDate: { $gte: startOfMonth },
-    }).populate("car"); // Populate car details
+    // Get all relevant rentals and unavailabilities
+    const [rentals, unavailabilities] = await Promise.all([
+      Renting.find({
+        startDate: { $lte: endOfMonth },
+        endDate: { $gte: startOfMonth },
+      }).lean(),
+      unavailability
+        .find({
+          startDate: { $lte: endOfMonth },
+          endDate: { $gte: startOfMonth },
+        })
+        .lean(),
+    ]);
 
-    // Group rentals by car
-    const groupedRentals = rentals.reduce((acc, rental) => {
-      const carId = rental.car._id.toString();
-      if (!acc[carId]) {
-        acc[carId] = {
-          car: rental.car,
-          reservations: [],
+    // Process each car's matricules
+    const response = cars.map((car) => {
+      const matriculesData = car.matricules.map((matricule) => {
+        // Find rentals for this matricule
+        const matriculeRentals = rentals.filter(
+          (rental) =>
+            rental.assignedMatricule === matricule.value &&
+            rental.carModel.toString() === car._id.toString()
+        );
+
+        // Find unavailabilities for this matricule
+        const matriculeUnavailabilities = unavailabilities.filter(
+          (u) =>
+            u.car.toString() === car._id.toString() &&
+            u.matricule === matricule.value
+        );
+
+        // Combine with car's built-in unavailable periods
+        const allUnavailablePeriods = [
+          ...(matricule.unavailablePeriods || []),
+          ...matriculeUnavailabilities.map((u) => ({
+            startDate: u.startDate,
+            endDate: u.endDate,
+          })),
+        ];
+
+        // Generate a map of statuses for each day of the month
+        const statuses = Array.from(
+          { length: endOfMonth.getUTCDate() },
+          (_, dayIndex) => {
+            const dayStart = new Date(Date.UTC(year, month - 1, dayIndex + 1));
+            const dayEnd = new Date(dayStart);
+            dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
+            dayEnd.setUTCMilliseconds(-1);
+
+            // Check if the day is reserved
+            const isReserved = matriculeRentals.some((rental) => {
+              const rentalStart = new Date(rental.startDate);
+              const rentalEnd = new Date(rental.endDate);
+              return rentalStart <= dayEnd && rentalEnd >= dayStart;
+            });
+
+            // Check if the day is unavailable
+            const isUnavailable = allUnavailablePeriods.some((period) => {
+              const unavailableStart = new Date(period.startDate);
+              const unavailableEnd = new Date(period.endDate);
+              return unavailableStart <= dayEnd && unavailableEnd >= dayStart;
+            });
+
+            // Determine the status
+            return isReserved
+              ? "reserved"
+              : isUnavailable
+              ? "unavailable"
+              : "available";
+          }
+        );
+
+        return {
+          value: matricule.value,
+          statuses,
+          rentals: matriculeRentals,
+          unavailablePeriods: allUnavailablePeriods,
         };
-      }
-      acc[carId].reservations.push(rental);
-      return acc;
-    }, {});
+      });
 
-    // Create a response array that will include all cars and their reservations
-    const response = cars.map((car) => ({
-      car,
-      reservations: groupedRentals[car._id.toString()]
-        ? groupedRentals[car._id.toString()].reservations
-        : [],
-    }));
+      return {
+        ...car,
+        matricules: matriculesData,
+        reservations: rentals.filter(
+          (rental) => rental.carModel.toString() === car._id.toString()
+        ),
+      };
+    });
 
     res.status(200).json(response);
   } catch (error) {
-    res.status(500).json({ message: "Error retrieving cars by month", error });
+    console.error("Error in getCarsByMonth:", error);
+    res.status(500).json({
+      message: "Error retrieving cars by month",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
   }
 };

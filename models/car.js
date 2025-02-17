@@ -29,7 +29,23 @@ const carSchema = new mongoose.Schema(
     available: { type: Boolean, required: true, default: true },
     garantie: { type: Number, default: 0 },
     isNewCar: { type: Boolean, required: true, default: true },
-    matricule: { type: String, required: true },
+    matricules: [
+      {
+        value: { type: String, required: true, unique: true },
+        available: { type: Boolean, default: true },
+        unavailablePeriods: [
+          {
+            startDate: Date,
+            endDate: Date,
+            source: {
+              type: String,
+              enum: ["manual", "system"],
+              required: true,
+            },
+          },
+        ],
+      },
+    ],
     airConditionner: { type: Boolean, required: true, default: true },
   },
   { timestamps: true }
@@ -56,4 +72,17 @@ carSchema.methods.addRating = function (fullName, rating, comment) {
   return this.save();
 };
 
+carSchema.methods.isMatriculeAvailable = function (
+  matricule,
+  startDate,
+  endDate
+) {
+  return this.matricules.some(
+    (m) =>
+      m.value === matricule &&
+      !m.unavailablePeriods?.some(
+        (period) => period.startDate <= endDate && period.endDate >= startDate
+      )
+  );
+};
 module.exports = mongoose.model("Car", carSchema);

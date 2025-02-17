@@ -1,71 +1,51 @@
 const Unavailability = require("../models/unavailability");
 
-exports.createUnavailability = async (req, res) => {
-  try {
-    const { car, startDate, endDate } = req.body;
+exports.getUnavailability = async (req, res) => {
+  const { car, matricule, startDate, endDate } = req.query;
 
-    // Check for existing conflicts
-    const conflict = await Unavailability.findOne({
+  try {
+    const unavailability = await Unavailability.find({
       car,
-      $or: [
-        { startDate: { $lte: endDate }, endDate: { $gte: startDate } },
-        { startDate: { $gte: startDate, $lte: endDate } },
-      ],
+      matricule,
+      startDate: { $lte: new Date(endDate) },
+      endDate: { $gte: new Date(startDate) },
     });
 
-    if (conflict) {
-      return res
-        .status(400)
-        .json({ error: "Date range conflicts with existing unavailability" });
-    }
+    res.status(200).json(unavailability);
+  } catch (error) {
+    console.error("Error fetching unavailability:", error);
+    res.status(500).json({ error: "Failed to fetch unavailability" });
+  }
+};
 
-    const unavailability = await Unavailability.create({
+exports.createUnavailability = async (req, res) => {
+  const { car, matricule, startDate, endDate, source } = req.body;
+
+  try {
+    const newUnavailability = new Unavailability({
       car,
+      matricule,
       startDate,
       endDate,
+      source,
     });
-    res.status(201).json(unavailability);
+
+    await newUnavailability.save();
+    res.status(201).json(newUnavailability);
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error("Error creating unavailability:", error);
+    res.status(500).json({ error: "Failed to create unavailability" });
   }
 };
 
 exports.deleteUnavailability = async (req, res) => {
+  const { id } = req.params;
+
   try {
-    const { id } = req.params;
-    const unavailability = await Unavailability.findByIdAndDelete(id);
-
-    if (!unavailability) {
-      return res.status(404).json({ error: "Unavailability not found" });
-    }
-
-    res.status(200).json({ message: "Unavailability removed" });
+    await Unavailability.findByIdAndDelete(id);
+    res.status(200).json({ message: "Unavailability deleted successfully" });
   } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-// Add this to your existing controller
-exports.getMonthlyUnavailability = async (req, res) => {
-  try {
-    const { month, year } = req.query;
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0);
-
-    const unavailabilities = await Unavailability.find({
-      $or: [
-        {
-          startDate: { $lte: endDate },
-          endDate: { $gte: startDate },
-        },
-        {
-          startDate: { $gte: startDate, $lte: endDate },
-        },
-      ],
-    }).populate("car", "matricule category");
-
-    res.status(200).json(unavailabilities);
-  } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error("Error deleting unavailability:", error);
+    res.status(500).json({ error: "Failed to delete unavailability" });
   }
 };

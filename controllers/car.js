@@ -9,9 +9,15 @@ exports.createCar = async (req, res) => {
       return res.status(400).json({ message: err });
     }
     try {
+      let matricules;
+      try {
+        matricules = JSON.parse(req.body.matricules);
+      } catch (parseError) {
+        return res.status(400).json({ message: "Invalid matricules format" });
+      }
+
       const {
         title,
-        matricule,
         description,
         category,
         carType,
@@ -25,11 +31,27 @@ exports.createCar = async (req, res) => {
         airConditionner,
       } = req.body;
 
+      // Validate matricules array structure
+      if (!Array.isArray(matricules)) {
+        return res.status(400).json({ message: "Invalid matricules format" });
+      }
+
+      const isValidMatricules = matricules.every(
+        (m) => m.value && typeof m.available !== "undefined"
+      );
+
+      if (!isValidMatricules) {
+        return res.status(400).json({
+          message:
+            "Invalid matricule structure. Each must have value and available status",
+        });
+      }
+
       const images = req.files.map((file) => file.originalname);
 
       const newCar = new Car({
         title,
-        matricule,
+        matricules, // Store array of matricules
         description,
         category,
         carType,
@@ -47,7 +69,12 @@ exports.createCar = async (req, res) => {
       await newCar.save();
       res.status(201).json(newCar);
     } catch (error) {
-      res.status(500).json({ message: "Error creating car", error });
+      console.error("Error creating car:", error);
+      res.status(500).json({
+        message: "Error creating car",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
     }
   });
 };
@@ -101,7 +128,7 @@ exports.update = async (req, res) => {
     try {
       const {
         title,
-        matricule,
+        matricules, // Changed from matricule to matricules
         description,
         category,
         carType,
@@ -117,7 +144,6 @@ exports.update = async (req, res) => {
 
       const updatedFields = {
         title,
-        matricule,
         description,
         category,
         carType,
@@ -131,7 +157,35 @@ exports.update = async (req, res) => {
         airConditionner,
       };
 
-      if (req.files && req.files.length > 0) {
+      // Handle matricules update if provided
+      if (matricules) {
+        try {
+          const parsedMatricules = JSON.parse(matricules);
+
+          // Validate matricules structure
+          const isValid =
+            Array.isArray(parsedMatricules) &&
+            parsedMatricules.every(
+              (m) => m.value && typeof m.available !== "undefined"
+            );
+
+          if (!isValid) {
+            return res.status(400).json({
+              message:
+                "Invalid matricules format. Expected array of { value: string, available: boolean }",
+            });
+          }
+
+          updatedFields.matricules = parsedMatricules;
+        } catch (e) {
+          return res.status(400).json({
+            message: "Invalid matricules format. Must be a valid JSON array",
+          });
+        }
+      }
+
+      // Handle images update
+      if (req.files?.length > 0) {
         updatedFields.images = req.files.map((file) => file.originalname);
       }
 
@@ -151,7 +205,11 @@ exports.update = async (req, res) => {
       res.status(200).json(updatedCar);
     } catch (error) {
       console.error("Error updating car:", error);
-      res.status(500).json({ message: "Error updating car", error });
+      res.status(500).json({
+        message: "Error updating car",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
     }
   });
 };

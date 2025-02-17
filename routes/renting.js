@@ -6,20 +6,30 @@ const {
   getAvailableCars,
   getUnavailableDates,
   getCarsByMonth,
+  assignMatricule,
+  getAvailableMatricules,
 } = require("../controllers/renting");
 const authenticateToken = require("../middleware/authenticateToken");
 
 // Create a new renting
-router.post("/create", createRenting);
+router.post("/create", authenticateToken, createRenting);
 
 // Get all rentings
-router.get("/getall/:category", authenticateToken, getAllRentings);
+router.get("/", authenticateToken, getAllRentings);
 
 // Get available cars by date
-router.get("/availablecars/:category", getAvailableCars);
+router.get("/availablecars", getAvailableCars);
 
+// Get unavailable dates for a specific car
 router.get("/getunavailabedates/:carid", getUnavailableDates);
 
-router.get("/month", getCarsByMonth); // Admin endpoint to fetch cars by month
+// Get cars by month
+router.get("/month", authenticateToken, getCarsByMonth);
+
+// Assign matricule to a renting
+router.post("/assignmatricule/:rentingId", authenticateToken, assignMatricule);
+
+// Get available matricules for a car model
+router.get("/availablematricules", authenticateToken, getAvailableMatricules);
 
 module.exports = router;

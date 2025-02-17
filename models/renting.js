@@ -9,11 +9,7 @@ const rentingSchema = new mongoose.Schema(
     phone: { type: String, required: true },
     age: { type: Number, required: true },
     city: { type: String, required: true },
-    car: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Car",
-      required: true,
-    },
+
     category: { type: String, required: true },
     startDate: { type: Date, required: true },
     endDate: { type: Date, required: true },
@@ -23,6 +19,13 @@ const rentingSchema = new mongoose.Schema(
     whatsapp: { type: String, required: true },
     siegeAuto: { type: Boolean, required: true },
     numVol: { type: String, required: false },
+    carModel: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Car",
+      required: true,
+    },
+    assignedMatricule: { type: String, default: null },
+    assignmentDate: { type: Date, default: null },
   },
   { timestamps: true }
 );

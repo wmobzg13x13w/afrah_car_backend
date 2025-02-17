@@ -7,14 +7,9 @@ const unavailabilitySchema = new mongoose.Schema(
       ref: "Car",
       required: true,
     },
-    startDate: {
-      type: Date,
-      required: true,
-    },
-    endDate: {
-      type: Date,
-      required: true,
-    },
+    matricule: { type: String, required: true },
+    startDate: { type: Date, required: true },
+    endDate: { type: Date, required: true },
   },
   { timestamps: true }
 );
