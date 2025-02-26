@@ -1,6 +1,157 @@
 const Transfert = require("../models/transfert");
 const nodemailer = require("nodemailer");
-const pdf = require("html-pdf");
+const PDFDocument = require("pdfkit");
+
+async function createTransfertPDF(transfertData) {
+  return new Promise((resolve) => {
+    const doc = new PDFDocument({ margin: 30, size: "A4", bufferPages: true });
+    const buffers = [];
+
+    doc.on("data", buffers.push.bind(buffers));
+    doc.on("end", () => resolve(Buffer.concat(buffers)));
+
+    doc.image("public/logo1.jpg", 450, 30, { width: 100 });
+
+    // Header
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(18)
+      .text("CONTRAT DE TRANSFERT", { align: "center" })
+      .moveDown(0.3);
+
+    // Horizontal line
+    doc.moveTo(30, 90).lineTo(570, 90).strokeColor("#cccccc").stroke();
+
+    let yPosition = 110;
+
+    // Client Information Section
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(11)
+      .text("INFORMATIONS CLIENT:", 30, yPosition);
+    yPosition += 20;
+
+    const clientInfo = [
+      `Nom Complet: ${transfertData.firstName} ${transfertData.lastName}`,
+      `Email: ${transfertData.email}`,
+      `Téléphone: ${transfertData.phone}`,
+      `WhatsApp: ${transfertData.whatsAppNum}`,
+      `Adresse: ${transfertData.address}`,
+    ];
+
+    clientInfo.forEach((info) => {
+      doc.font("Helvetica").fontSize(10).text(`• ${info}`, 40, yPosition);
+      yPosition += 15;
+    });
+
+    // Transfer Information Section
+    yPosition += 10;
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(11)
+      .text("DÉTAILS DU TRANSFERT:", 30, yPosition);
+    yPosition += 20;
+
+    const transfertInfo = [
+      ["Type de voiture:", transfertData.carType],
+      ["Lieu de prise en charge:", transfertData.pickupLocation],
+      ["Lieu de restitution:", transfertData.dropoffLocation],
+      ["Date de prise en charge:", formatFrenchDate(transfertData.startDate)],
+      ["Date de restitution:", formatFrenchDate(transfertData.endDate)],
+      ["Type de carburant:", transfertData.carburant],
+      ["Frais de carburant:", transfertData.fuelFeesOn === "client" ? "À la charge du client" : "À la charge de l'entreprise"],
+    ];
+
+    transfertInfo.forEach(([label, value]) => {
+      doc.font("Helvetica-Bold").text(label, 50, yPosition);
+      doc.font("Helvetica").text(value, 200, yPosition);
+      yPosition += 20;
+    });
+
+    // Footer
+    const footerY = 700;
+
+    // Add a line above the agencies section
+    doc
+      .moveTo(30, footerY - 10)
+      .lineTo(570, footerY - 10)
+      .strokeColor("#cccccc")
+      .stroke();
+
+    // Title with some styling
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(12)
+      .fillColor("#333333")
+      .text("NOS AGENCES", 30, footerY, { align: "center" })
+      .moveDown(0.5);
+
+    // Contact information in two columns
+    const leftColumn = 50;
+    const rightColumn = 300;
+
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(10)
+      .fillColor("#666666")
+      .text("Agence Ennozha:", leftColumn, footerY + 25);
+
+    doc
+      .font("Helvetica")
+      .fontSize(9)
+      .fillColor("#333333")
+      .text("+216 26 107 537, +216 54 546 653", leftColumn + 90, footerY + 25);
+
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(10)
+      .fillColor("#666666")
+      .text("Agence Mégrine:", rightColumn, footerY + 25);
+
+    doc
+      .font("Helvetica")
+      .fontSize(9)
+      .fillColor("#333333")
+      .text("+216 29 717 071", rightColumn + 90, footerY + 25);
+
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(10)
+      .fillColor("#666666")
+      .text("Agence Ariana:", leftColumn, footerY + 45);
+
+    doc
+      .font("Helvetica")
+      .fontSize(9)
+      .fillColor("#333333")
+      .text("+216 26 207 537", leftColumn + 90, footerY + 45);
+
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(10)
+      .fillColor("#666666")
+      .text("Atelier:", rightColumn, footerY + 45);
+
+    doc
+      .font("Helvetica")
+      .fontSize(9)
+      .fillColor("#333333")
+      .text("+216 26 107 537", rightColumn + 90, footerY + 45);
+    doc.end();
+  });
+}
+
+function formatFrenchDate(dateString) {
+  const date = new Date(dateString);
+  return date.toLocaleDateString("fr-FR", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 exports.createTransfert = async (req, res) => {
   try {
     const {
@@ -35,108 +186,24 @@ exports.createTransfert = async (req, res) => {
       fuelFeesOn,
     });
 
-    const pdfContent = `
-    <html>
-      <head>
-        <style>
-          /* Add your PDF styling here */
-          body {
-            font-family: Arial, sans-serif;
-            padding: 20px;
-          }
-          h1 {
-            text-align: center;
-            margin-bottom: 30px;
-          }
-          table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-          }
-          th, td {
-            padding: 10px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-          }
-          th {
-            background-color: #f2f2f2;
-          }
-        </style>
-      </head>
-      <body>
-        <h1>Détails du Transfert</h1>
-        <table>
-          <tr>
-            <th>Nom</th>
-            <td>${firstName} ${lastName}</td>
-          </tr>
-          <tr>
-            <th>Email</th>
-            <td>${email}</td>
-          </tr>
-          <tr>
-            <th>Adresse</th>
-            <td>${address}</td>
-          </tr>
-          <tr>
-            <th>Téléphone</th>
-            <td>${phone}</td>
-          </tr>
-          <tr>
-            <th>Numéro WhatsApp</th>
-            <td>${whatsAppNum}</td>
-          </tr>
-          <tr>
-            <th>Date de prise en charge</th>
-            <td>${new Date(startDate).toLocaleString("fr-FR", {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            })}</td>
-          </tr>
-          <tr>
-            <th>Date de restitution</th>
-            <td>${new Date(endDate).toLocaleString("fr-FR", {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            })}</td>
-          </tr>
-          <tr>
-            <th>Lieu de prise en charge</th>
-            <td>${pickupLocation}</td>
-          </tr>
-          <tr>
-            <th>Lieu de restitution</th>
-            <td>${dropoffLocation}</td>
-          </tr>
-          <tr>
-            <th>Type de voiture</th>
-            <td>${carType}</td>
-          </tr>
-          <tr>
-            <th>Type de carburant</th>
-            <td>${carburant}</td>
-          </tr>
-          <tr>
-            <th>Frais de carburant</th>
-            <td>${
-              fuelFeesOn === "client"
-                ? "À la charge du client"
-                : "À la charge de l'entreprise"
-            }</td>
-          </tr>
-        </table>
-      </body>
-    </html>
-  `;
+    // Generate PDF
+    const pdfBuffer = await createTransfertPDF({
+      firstName,
+      lastName,
+      email,
+      address,
+      phone,
+      whatsAppNum,
+      startDate,
+      endDate,
+      pickupLocation,
+      dropoffLocation,
+      carburant,
+      carType,
+      fuelFeesOn,
+    });
 
     const transporter = nodemailer.createTransport({
-      // Configure your email server details here
       service: "gmail",
       auth: {
         user: process.env.email,
@@ -144,37 +211,32 @@ exports.createTransfert = async (req, res) => {
       },
     });
 
-    const pdfBuffer = await new Promise((resolve, reject) => {
-      pdf.create(pdfContent).toBuffer((err, buffer) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(buffer);
-        }
-      });
-    });
-
-    const mailOptions = {
+    await transporter.sendMail({
       from: process.env.email,
       to: email,
       subject: "Détails du transfert",
-      text: "Veuillez trouver ci-joint les détails du transfert",
+      text: `Bonjour ${firstName},\n\nVeuillez trouver ci-joint les détails de votre transfert.\n\nCordialement,\nL'équipe de location`,
       attachments: [
         {
-          filename: "details-transfert.pdf",
+          filename: `Contrat_Transfert_${firstName}_${lastName}.pdf`,
           content: pdfBuffer,
-          encoding: "binary",
         },
       ],
-    };
+    });
 
-    await transporter.sendMail(mailOptions);
     await newTransfert.save();
-    res.status(201).json(newTransfert);
+    res.status(201).json({
+      success: true,
+      data: newTransfert,
+      message: "Transfert créé et contrat envoyé avec succès",
+    });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Erreur lors de la création du transfert", error });
+    console.error("Erreur:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la création du transfert",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
   }
 };
 

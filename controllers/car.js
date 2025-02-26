@@ -1,5 +1,6 @@
 const Car = require("../models/car");
 const Renting = require("../models/renting");
+const CarType = require("../models/carType");
 
 const upload = require("../middleware/fileUpload");
 
@@ -128,7 +129,7 @@ exports.update = async (req, res) => {
     try {
       const {
         title,
-        matricules, // Changed from matricule to matricules
+        matricules,
         description,
         category,
         carType,
@@ -140,6 +141,7 @@ exports.update = async (req, res) => {
         garantie,
         isNewCar,
         airConditionner,
+        existingImages, // Add this to handle existing images
       } = req.body;
 
       const updatedFields = {
@@ -161,7 +163,6 @@ exports.update = async (req, res) => {
       if (matricules) {
         try {
           const parsedMatricules = JSON.parse(matricules);
-
           // Validate matricules structure
           const isValid =
             Array.isArray(parsedMatricules) &&
@@ -184,9 +185,33 @@ exports.update = async (req, res) => {
         }
       }
 
-      // Handle images update
+      // Improved image handling
+      let finalImages = [];
+
+      // Add existing images if provided
+      if (existingImages) {
+        try {
+          const parsedExistingImages = JSON.parse(existingImages);
+          if (Array.isArray(parsedExistingImages)) {
+            finalImages = [...parsedExistingImages];
+          }
+        } catch (e) {
+          return res.status(400).json({
+            message:
+              "Invalid existing images format. Must be a valid JSON array",
+          });
+        }
+      }
+
+      // Add new uploaded images
       if (req.files?.length > 0) {
-        updatedFields.images = req.files.map((file) => file.originalname);
+        const newImages = req.files.map((file) => file.originalname);
+        finalImages = [...finalImages, ...newImages];
+      }
+
+      // Update the images field only if we have images
+      if (finalImages.length > 0) {
+        updatedFields.images = finalImages;
       }
 
       const updatedCar = await Car.findByIdAndUpdate(
@@ -248,13 +273,21 @@ exports.updateCarStatus = async (req, res) => {
 
 exports.getCarsCollection = async (req, res) => {
   try {
-    const suvCars = await Car.find({ carType: "SUV" }).limit(2);
-    const berlineCars = await Car.find({ carType: "Berline" }).limit(2);
-    const pickupCars = await Car.find({ carType: "Pickup" }).limit(2);
+    // Get 3 random car types
+    const carTypes = await CarType.aggregate([{ $sample: { size: 3 } }]);
 
-    const cars = [...suvCars, ...berlineCars, ...pickupCars];
+    // Find cars for each type
+    const carsCollection = await Promise.all(
+      carTypes.map(async (type) => {
+        const cars = await Car.find({ carType: type.name }).limit(2);
+        return {
+          type: type.name,
+          cars: cars,
+        };
+      })
+    );
 
-    res.status(200).json(cars);
+    res.status(200).json(carsCollection);
   } catch (error) {
     res.status(500).json({ message: "Error retrieving cars by type", error });
   }

@@ -14,6 +14,8 @@ async function createRentalPDF(rentalData) {
     doc.on("data", buffers.push.bind(buffers));
     doc.on("end", () => resolve(Buffer.concat(buffers)));
 
+    doc.image("public/logo1.jpg", 450, 30, { width: 100 });
+
     // Header
     doc
       .font("Helvetica-Bold")
@@ -93,7 +95,76 @@ async function createRentalPDF(rentalData) {
       .text(`Dépôt de garantie: ${rentalData.garantie} DT`, 30, yPosition + 40);
 
     // Footer
-    doc.fontSize(9).text("Merci pour votre confiance!", 30, 750);
+
+    const footerY = 700;
+
+    // Add a line above the agencies section
+    doc
+      .moveTo(30, footerY - 10)
+      .lineTo(570, footerY - 10)
+      .strokeColor("#cccccc")
+      .stroke();
+
+    // Title with some styling
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(12)
+      .fillColor("#333333")
+      .text("NOS AGENCES", 30, footerY, { align: "center" })
+      .moveDown(0.5);
+
+    // Contact information in two columns
+    const leftColumn = 50;
+    const rightColumn = 300;
+    const lineHeight = 15;
+
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(10)
+      .fillColor("#666666")
+      .text("Agence Ennozha:", leftColumn, footerY + 25);
+
+    doc
+      .font("Helvetica")
+      .fontSize(9)
+      .fillColor("#333333")
+      .text("+216 26 107 537, +216 54 546 653", leftColumn + 90, footerY + 25);
+
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(10)
+      .fillColor("#666666")
+      .text("Agence Mégrine:", rightColumn, footerY + 25);
+
+    doc
+      .font("Helvetica")
+      .fontSize(9)
+      .fillColor("#333333")
+      .text("+216 29 717 071", rightColumn + 90, footerY + 25);
+
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(10)
+      .fillColor("#666666")
+      .text("Agence Ariana:", leftColumn, footerY + 45);
+
+    doc
+      .font("Helvetica")
+      .fontSize(9)
+      .fillColor("#333333")
+      .text("+216 26 207 537", leftColumn + 90, footerY + 45);
+
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(10)
+      .fillColor("#666666")
+      .text("Atelier:", rightColumn, footerY + 45);
+
+    doc
+      .font("Helvetica")
+      .fontSize(9)
+      .fillColor("#333333")
+      .text("+216 26 107 537", rightColumn + 90, footerY + 45);
 
     doc.end();
   });
