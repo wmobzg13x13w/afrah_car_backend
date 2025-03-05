@@ -13,6 +13,7 @@ const rentingRouter = require("./routes/renting");
 const transfertRouter = require("./routes/transfert");
 const carTypesRouter = require("./routes/carTypes");
 const unavailabilityRouter = require("./routes/unavailability");
+const heroRouter = require("./routes/heroImageRoutes");
 
 app.use(express.json());
 app.use(cors());
@@ -24,6 +25,7 @@ app.use("/rentings", rentingRouter);
 app.use("/transfert", transfertRouter);
 app.use("/cartypes", carTypesRouter);
 app.use("/unavailability", unavailabilityRouter);
+app.use("/settings/hero-image", heroRouter);
 
 mongoose
   .connect(process.env.DB_CONNECTION)
